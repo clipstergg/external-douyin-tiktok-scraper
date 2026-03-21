@@ -1,13 +1,18 @@
-from fastapi import APIRouter, Query, Request, HTTPException  # 导入FastAPI组件
-from app.api.models.APIResponseModel import ResponseModel, ErrorResponseModel  # 导入响应模型
+import asyncio
+import logging
 
-from crawlers.tiktok.app.app_crawler import TikTokAPPCrawler  # 导入APP爬虫
+from fastapi import APIRouter, Query, Request, HTTPException
+from fastapi.responses import Response
+from app.api.models.APIResponseModel import ResponseModel, ErrorResponseModel
+
+from crawlers.tiktok.app.app_crawler import TikTokAPPCrawler
+
+logger = logging.getLogger("Douyin_TikTok_Download_API_Crawlers")
 
 router = APIRouter()
 TikTokAPPCrawler = TikTokAPPCrawler()
 
 
-# 获取单个作品数据
 @router.get("/fetch_one_video",
             response_model=ResponseModel,
             summary="获取单个作品数据/Get single video data"
@@ -34,12 +39,22 @@ async def fetch_one_video(request: Request,
     # [示例/Example]
     aweme_id = "7350810998023949599"
     """
+    task = asyncio.create_task(TikTokAPPCrawler.fetch_one_video(aweme_id))
+
+    while not task.done():
+        if await request.is_disconnected():
+            task.cancel()
+            logger.warning("fetch_one_video client disconnected for aweme_id=%s", aweme_id)
+            return Response(status_code=499)
+        await asyncio.sleep(0.1)
+
     try:
-        data = await TikTokAPPCrawler.fetch_one_video(aweme_id)
+        data = task.result()
         return ResponseModel(code=200,
                              router=request.url.path,
                              data=data)
     except Exception as e:
+        logger.warning("fetch_one_video failed for aweme_id=%s: %s", aweme_id, e)
         status_code = 400
         detail = ErrorResponseModel(code=status_code,
                                     router=request.url.path,

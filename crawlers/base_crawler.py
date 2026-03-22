@@ -211,8 +211,8 @@ class BaseCrawler:
             except httpx.HTTPStatusError as http_error:
                 self.handle_http_status_error(http_error, url, attempt + 1)
 
-            except APIError as e:
-                e.display_error()
+            except APIError:
+                raise
 
     async def post_fetch_data(self, url: str, params: dict = {}, data=None):
         """
@@ -320,6 +320,8 @@ class BaseCrawler:
             )
             raise APIResponseError(f"处理HTTP错误时遇到意外情况: {http_error}")
 
+        logger.warning("HTTP %s, URL: %s, attempt: %s", status_code, url, attempt)
+
         if status_code == 302:
             pass
         elif status_code == 404:
@@ -333,11 +335,7 @@ class BaseCrawler:
         elif status_code == 429:
             raise APIRateLimitError(f"HTTP Status Code {status_code}")
         else:
-            logger.error("HTTP状态错误: {0}, URL: {1}, 尝试次数: {2}".format(
-                status_code, url, attempt
-            )
-            )
-            raise APIResponseError(f"HTTP状态错误: {status_code}")
+            raise APIResponseError(f"HTTP Status Code {status_code}")
 
     async def close(self):
         await self.aclient.aclose()
